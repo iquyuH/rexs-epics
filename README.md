@@ -2,7 +2,7 @@
 
 以六自由度支撑平台为起点，逐步将 REXS 实验站设备接入 EPICS，实现统一监控、控制与实验自动化。
 
-> 仓库当前仅提供项目说明。下述进展来自现有设备部署；脚本及依赖文件待整理上传，使用命令供代码补齐后参考。
+> 已上传原始 IOC、两个 UDP 调试脚本及依赖文件；Windows 转发脚本尚待补充。下述设备验证结果来自此前部署，本次仅检查脚本语法，未重新连接设备测试。
 
 ## 当前进展
 
@@ -26,23 +26,18 @@ EPICS 客户端：caget / camonitor
 
 IOC 检查帧头 `EB9011`、帧长度和协议校验，从偏移 4 按小端格式 `<6f` 解析 X、Y、Z、α、β、γ，并发布对应 PV。单位与角度定义以设备协议为准。
 
-## 项目文件（待上传）
+## 项目文件
 
 ```text
-udp_forward.py    Windows UDP 转发脚本
 stage_ioc.py      Ubuntu EPICS IOC
+udp_receive.py    Ubuntu 被动接收测试（最多接收 5 个数据包）
+udp_text.py       Ubuntu 主动请求测试（发送 EB901103）
 requirements.txt Python 依赖（caproto==1.3.0）
 ```
 
 ## 使用方法
 
-以下步骤在脚本及依赖文件上传后适用。配置上述 IP 地址，确保 Windows 与 Ubuntu 网络互通，并放行相应 UDP 和 EPICS Channel Access 通信。
-
-Windows 启动转发：
-
-```powershell
-uv run udp_forward.py
-```
+Windows 转发脚本 `udp_forward.py` 尚未上传，需先运行现有转发程序。配置上述 IP 地址，确保 Windows 与 Ubuntu 网络互通，并放行相应 UDP 和 EPICS Channel Access 通信。
 
 Ubuntu 安装依赖并启动 IOC：
 
@@ -62,7 +57,9 @@ caget STAGE:Z:RBV
 camonitor STAGE:X:RBV STAGE:Y:RBV STAGE:Z:RBV
 ```
 
-设备断线后，当前 PV 可能保留最后一次读数，不代表实时位置。
+三个 Python 脚本都绑定 Ubuntu 的 `192.168.1.101:8080`，不能同时运行。`udp_receive.py` 用于单独检查接收；`udp_text.py` 会向控制器主动发送读取请求，是否能收到回复取决于设备反馈配置，不能替代 Windows 转发。
+
+IOC 只接收来自 `192.168.1.100` 的报文，校验规则为 `sum(data[4:]) & 0xFF == data[3]`。首次收到有效数据前 PV 为初始值 0；设备断线后可能保留最后一次读数，均不能直接视为实时位置。
 
 ## 最终目标
 
